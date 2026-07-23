@@ -37,29 +37,38 @@ jobs:
           chmod +x milo
           echo "$PWD" >> "$GITHUB_PATH"
 
-      # Homebrew's `sdl2` formula now resolves to sdl2-compat, a shim over SDL3
-      # that ships only a dylib — no libSDL2.a for --static-deps to link. So on
-      # macOS build real SDL2 from source. Debian's libsdl2-dev still ships the
-      # static archive, so apt is fine on linux.
-      - name: install SDL2 (static archive required)
+      # Build SDL2 from source on both platforms. Neither distro's package works:
+      #   macOS — brew's `sdl2` now resolves to sdl2-compat (a shim over SDL3),
+      #           which ships only a dylib, so there is no libSDL2.a to link.
+      #   linux — Debian's libSDL2.a hard-links Wayland (undefined wl_proxy_*)
+      #           and sdl2-config does not report those deps.
+      # A source build gets SDL's default behaviour instead: the X11/Wayland
+      # backends are dlopen'd at runtime, so the static archive needs only
+      # -lm/-ldl/-lpthread and the binary still works on either display server.
+      - name: build SDL2 static from source
         env:
           SDL_VERSION: 2.32.10
         run: |
           if [ "$RUNNER_OS" = "macOS" ]; then
+            PREFIX=/opt/homebrew
             command -v cmake >/dev/null || brew install cmake
-            curl -fsSL -o sdl.tar.gz \
-              "https://github.com/libsdl-org/SDL/releases/download/release-${SDL_VERSION}/SDL2-${SDL_VERSION}.tar.gz"
-            tar xzf sdl.tar.gz
-            cmake -S "SDL2-${SDL_VERSION}" -B sdlbuild \
-              -DCMAKE_INSTALL_PREFIX=/opt/homebrew \
-              -DCMAKE_BUILD_TYPE=Release -DSDL_STATIC=ON -DSDL_SHARED=OFF
-            cmake --build sdlbuild --parallel
-            cmake --install sdlbuild
-            test -f /opt/homebrew/lib/libSDL2.a || { echo "no static archive produced"; exit 1; }
           else
+            PREFIX=/usr
             sudo apt-get update
-            sudo apt-get install -y libsdl2-dev
+            # headers for the backends SDL compiles against and then dlopens
+            sudo apt-get install -y cmake libx11-dev libxext-dev libxrandr-dev \
+              libxcursor-dev libxi-dev libxss-dev libasound2-dev
           fi
+          curl -fsSL -o sdl.tar.gz \
+            "https://github.com/libsdl-org/SDL/releases/download/release-${SDL_VERSION}/SDL2-${SDL_VERSION}.tar.gz"
+          tar xzf sdl.tar.gz
+          cmake -S "SDL2-${SDL_VERSION}" -B sdlbuild \
+            -DCMAKE_INSTALL_PREFIX="$PREFIX" -DCMAKE_BUILD_TYPE=Release \
+            -DSDL_STATIC=ON -DSDL_SHARED=OFF -DSDL_WAYLAND=OFF
+          cmake --build sdlbuild --parallel
+          sudo cmake --install sdlbuild
+          test -f "$PREFIX/lib/libSDL2.a" || { echo "no static archive produced"; exit 1; }
+          "$PREFIX/bin/sdl2-config" --static-libs
 
       # --static-deps links libSDL2.a into each binary, so a user downloading a
       # release does not need SDL2 installed. SDL2 is zlib-licensed, so static
