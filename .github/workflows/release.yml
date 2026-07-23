@@ -162,7 +162,9 @@ jobs:
             macOS's quarantine flag, which kills and trashes the unsigned binary:
 
             ```
-            curl -fsSL https://github.com/milo-language/emulators/releases/download/latest/milo-emulators-<platform>.tar.gz | tar xz
+            P=$(uname -s | tr A-Z a-z)-$(uname -m | sed 's/x86_64/x64/;s/aarch64/arm64/')
+            curl -fsSL https://github.com/milo-language/emulators/releases/download/latest/milo-emulators-$P.tar.gz | tar xz
+            cd milo-emulators-$P && ./nes rom.nes
             ```
 
             Each archive holds the `nes`, `snes`, and `genesis` cores plus the
