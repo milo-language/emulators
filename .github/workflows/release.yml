@@ -132,10 +132,14 @@ jobs:
           done
           echo "all four binaries are SDL-free"
 
+      # Wrap in a directory rather than `-C dist .`: a flat tarball scatters four
+      # binaries and a README into whatever directory the user extracted from.
       - name: package
         run: |
           cp README.md dist/
-          tar czf "milo-emulators-${{ matrix.target }}.tar.gz" -C dist .
+          mkdir -p "pkg/milo-emulators-${{ matrix.target }}"
+          cp -R dist/. "pkg/milo-emulators-${{ matrix.target }}/"
+          tar czf "milo-emulators-${{ matrix.target }}.tar.gz" -C pkg "milo-emulators-${{ matrix.target }}"
 
       - uses: actions/upload-artifact@v4
         with:
