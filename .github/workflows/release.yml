@@ -37,10 +37,25 @@ jobs:
           chmod +x milo
           echo "$PWD" >> "$GITHUB_PATH"
 
-      - name: install SDL2
+      # Homebrew's `sdl2` formula now resolves to sdl2-compat, a shim over SDL3
+      # that ships only a dylib — no libSDL2.a for --static-deps to link. So on
+      # macOS build real SDL2 from source. Debian's libsdl2-dev still ships the
+      # static archive, so apt is fine on linux.
+      - name: install SDL2 (static archive required)
+        env:
+          SDL_VERSION: 2.32.10
         run: |
           if [ "$RUNNER_OS" = "macOS" ]; then
-            brew install sdl2
+            command -v cmake >/dev/null || brew install cmake
+            curl -fsSL -o sdl.tar.gz \
+              "https://github.com/libsdl-org/SDL/releases/download/release-${SDL_VERSION}/SDL2-${SDL_VERSION}.tar.gz"
+            tar xzf sdl.tar.gz
+            cmake -S "SDL2-${SDL_VERSION}" -B sdlbuild \
+              -DCMAKE_INSTALL_PREFIX=/opt/homebrew \
+              -DCMAKE_BUILD_TYPE=Release -DSDL_STATIC=ON -DSDL_SHARED=OFF
+            cmake --build sdlbuild --parallel
+            cmake --install sdlbuild
+            test -f /opt/homebrew/lib/libSDL2.a || { echo "no static archive produced"; exit 1; }
           else
             sudo apt-get update
             sudo apt-get install -y libsdl2-dev
@@ -49,18 +64,22 @@ jobs:
       # --static-deps links libSDL2.a into each binary, so a user downloading a
       # release does not need SDL2 installed. SDL2 is zlib-licensed, so static
       # linking carries no distribution obligation.
+      #
+      # Output goes to dist/ because `-o nes` would collide with the nes/ source
+      # directory — ld reports "cannot open output file nes: Is a directory".
       - name: build cores
         run: |
+          mkdir -p dist
           for core in nes snes genesis; do
-            milo build "$core/$core.milo" -o "$core" --release --static-deps
+            milo build "$core/$core.milo" -o "dist/$core" --release --static-deps
           done
-          milo build menu.milo -o menu --release --static-deps
+          milo build menu.milo -o dist/menu --release --static-deps
 
       # The whole point of the release is a binary that runs on a bare machine.
       # If SDL ever comes back as a dynamic dep, fail rather than ship it.
       - name: verify binaries carry no SDL runtime dependency
         run: |
-          for b in nes snes genesis menu; do
+          for b in dist/nes dist/snes dist/genesis dist/menu; do
             if [ "$RUNNER_OS" = "macOS" ]; then
               deps=$(otool -L "$b")
             else
@@ -75,7 +94,9 @@ jobs:
           echo "all four binaries are SDL-free"
 
       - name: package
-        run: tar czf "milo-emulators-${{ matrix.target }}.tar.gz" nes snes genesis menu README.md
+        run: |
+          cp README.md dist/
+          tar czf "milo-emulators-${{ matrix.target }}.tar.gz" -C dist .
 
       - uses: actions/upload-artifact@v4
         with:
