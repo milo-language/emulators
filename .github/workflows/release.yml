@@ -36,7 +36,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y clang-15
-          echo "/usr/lib/llvm-15/bin" >> "$GITHUB_PATH"
+          # milo probes /usr/bin/clang FIRST, which on this image is clang 14 —
+          # putting llvm-15 on PATH is not enough, the symlink has to move.
+          sudo ln -sf /usr/bin/clang-15 /usr/bin/clang
+          sudo ln -sf /usr/bin/clang++-15 /usr/bin/clang++
+          clang --version | head -1
 
       # Track the compiler's rolling build rather than pinning a version: a
       # language change that breaks these cores should fail here loudly, not rot
