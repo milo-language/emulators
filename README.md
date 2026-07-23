@@ -1,10 +1,20 @@
 # Milo emulators
 
+<p align="center">
+  <img src="docs/images/nes.png" alt="Super Mario Bros. 3 running on the Milo NES emulator" width="32%">
+  <img src="docs/images/genesis.png" alt="Sonic the Hedgehog running on the Milo Genesis emulator" width="32%">
+  <img src="docs/images/snes.png" alt="Super Mario World running on the Milo SNES emulator" width="32%">
+</p>
+
 NES, SNES, and Genesis emulators written in [Milo](https://github.com/milo-language/milo) — a
 memory-safe systems language with no GC and no lifetime annotations. Cycle-driven CPU cores,
 scanline PPU/VDP rendering, and audio, with SDL2 for video, sound, and input.
 
 No `unsafe`. No garbage collector. Commercial games run at full speed.
+
+**[Documentation](https://milo-language.github.io/milo/)** ·
+**[Download a release](https://github.com/milo-language/emulators/releases/tag/latest)** —
+SDL2 is statically linked, so nothing needs installing.
 
 | Core | Directory | State |
 | --- | --- | --- |
