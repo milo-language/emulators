@@ -11,6 +11,9 @@
 from "./cart68k" import {
     Cart
 }
+from "../shared/version" import {
+    handledVersionFlag
+}
 from "./cart68kFile" import {
     loadCart
 }
@@ -211,6 +214,9 @@ fn openPadN(n: i64): *u8 {
 }
 
 fn main(): i32 {
+    if handledVersionFlag("genesis") {
+        return 0
+    }
     var parser = newParser("genesis", "Milo Genesis / Mega Drive emulator (SDL2) — plays .md / .gen / .bin ROMs.")
     parser.addPositional("rom", "path to a .md, .gen or .bin ROM")
     let pargs = parser.parse() // auto-handles --help / -h; errors out when rom is missing

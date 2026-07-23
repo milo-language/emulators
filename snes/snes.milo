@@ -10,6 +10,9 @@
 from "std/argparse" import {
     newParser
 }
+from "../shared/version" import {
+    handledVersionFlag
+}
 from "./cpu" import {
     Cpu, Mem, busNew, newCpuReset, stepFrame, sramToString, sramFromString
 }
@@ -234,6 +237,9 @@ fn openPadN(n: i64): *u8 {
 }
 
 fn main(): i32 {
+    if handledVersionFlag("snes") {
+        return 0
+    }
     var parser = newParser("snes", "Milo SNES emulator (SDL2) — plays .sfc / .smc ROMs.")
     parser.addPositional("rom", "path to a .sfc or .smc ROM")
     let pargs = parser.parse() // auto-handles --help / -h; errors out when rom is missing

@@ -9,6 +9,9 @@
 from "std/argparse" import {
     newParser
 }
+from "../shared/version" import {
+    handledVersionFlag
+}
 from "std/fs" import {
     writeFile
 }
@@ -133,6 +136,9 @@ fn printControls(): void {
 }
 
 fn main(): i32 {
+    if handledVersionFlag("nes") {
+        return 0
+    }
     var parser = newParser("nes", "Milo NES emulator (SDL2) — plays iNES (.nes) ROMs.")
     parser.addPositional("rom", "path to a .nes ROM")
     let pargs = parser.parse() // auto-handles --help / -h; errors out when rom is missing

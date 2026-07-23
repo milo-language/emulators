@@ -95,6 +95,11 @@ jobs:
           echo "static archive: $archive"
           "$PREFIX/bin/sdl2-config" --static-libs
 
+      # Stamp build identity into the binary. `.version` is embedded via embedFile(),
+      # so this must happen before the build; the committed value is "dev".
+      - name: stamp version
+        run: printf '%s (%s)' "$(git rev-parse --short HEAD)" "$(date -u +%Y-%m-%d)" > .version
+
       # --static-deps links libSDL2.a into each binary, so a user downloading a
       # release does not need SDL2 installed. SDL2 is zlib-licensed, so static
       # linking carries no distribution obligation.
@@ -151,6 +156,14 @@ jobs:
           name: Latest Build
           body: |
             Rolling release from the latest passing commit on main.
+            `<core> --version` prints the commit a binary came from.
+
+            Install with curl, not the browser — a browser download carries
+            macOS's quarantine flag, which kills and trashes the unsigned binary:
+
+            ```
+            curl -fsSL https://github.com/milo-language/emulators/releases/download/latest/milo-emulators-<platform>.tar.gz | tar xz
+            ```
 
             Each archive holds the `nes`, `snes`, and `genesis` cores plus the
             `menu` front-end. SDL2 is statically linked, so nothing needs

@@ -12,6 +12,9 @@
 from "std/args" import {
     args
 }
+from "./shared/version" import {
+    handledVersionFlag
+}
 from "std/io" import {
     writeStdout
 }
@@ -51,6 +54,9 @@ fn openFirstPad(): *u8 {
 }
 
 fn main(): i32 {
+    if handledVersionFlag("menu") {
+        return 0
+    }
     var fullscreen = false
     for a in args() {
         if a == "--fullscreen" {

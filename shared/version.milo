@@ -1,0 +1,30 @@
+// Build identity, shared by all four binaries. `.version` is committed as "dev"
+// and overwritten by release CI with the commit sha + build date. Without it a
+// binary from the rolling `latest` tag cannot say what it is.
+
+from "std/args" import {
+    args
+}
+from "std/string" import {
+    trim
+}
+
+fn versionLine(name: string): string {
+    return name + " " + trim(embedFile("../.version"))
+}
+
+// Checked before argparse runs: every core takes a required ROM positional, so
+// `nes --version` would otherwise fail on the missing argument instead.
+fn handledVersionFlag(name: string): bool {
+    let argv = args()
+    var i: i64 = 1
+    while i < argv.len {
+        if argv[i] == "--version" || argv[i] == "-V" {
+            print(versionLine(name))
+            print("https://github.com/milo-language/emulators/releases — rolling `latest`; re-run the install command to update")
+            return true
+        }
+        i = i + 1
+    }
+    return false
+}
