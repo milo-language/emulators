@@ -67,7 +67,12 @@ jobs:
             -DSDL_STATIC=ON -DSDL_SHARED=OFF -DSDL_WAYLAND=OFF
           cmake --build sdlbuild --parallel
           sudo cmake --install sdlbuild
-          test -f "$PREFIX/lib/libSDL2.a" || { echo "no static archive produced"; exit 1; }
+          # Debian/Ubuntu cmake installs into a multiarch libdir
+          # (/usr/lib/x86_64-linux-gnu), not $PREFIX/lib — search both. The
+          # linker looks in multiarch by default, so -lSDL2 still resolves.
+          archive=$(find "$PREFIX/lib" -name libSDL2.a -print -quit 2>/dev/null)
+          test -n "$archive" || { echo "no static archive produced under $PREFIX/lib"; exit 1; }
+          echo "static archive: $archive"
           "$PREFIX/bin/sdl2-config" --static-libs
 
       # --static-deps links libSDL2.a into each binary, so a user downloading a
