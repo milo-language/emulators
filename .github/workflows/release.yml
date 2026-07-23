@@ -155,7 +155,7 @@ jobs:
             Each archive holds the `nes`, `snes`, and `genesis` cores plus the
             `menu` front-end. SDL2 is statically linked, so nothing needs
             installing — download, extract, run. ROMs are not included.
-          prerelease: true
+          prerelease: false
           make_latest: true
           files: milo-emulators-*.tar.gz
         env:
