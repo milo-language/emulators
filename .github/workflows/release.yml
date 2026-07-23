@@ -1,0 +1,107 @@
+name: release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # No darwin-x64: the free macos-13 Intel runner image was retired and
+          # queues forever. Matches the compiler repo's own matrix.
+          - os: macos-latest
+            target: darwin-arm64
+          - os: ubuntu-latest
+            target: linux-x64
+          - os: ubuntu-24.04-arm
+            target: linux-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Track the compiler's rolling build rather than pinning a version: a
+      # language change that breaks these cores should fail here loudly, not rot
+      # silently behind a pin.
+      - name: install milo
+        run: |
+          curl -fsSL -o milo.tar.gz \
+            "https://github.com/milo-language/milo/releases/download/latest/milo-${{ matrix.target }}.tar.gz"
+          tar xzf milo.tar.gz
+          chmod +x milo
+          echo "$PWD" >> "$GITHUB_PATH"
+
+      - name: install SDL2
+        run: |
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            brew install sdl2
+          else
+            sudo apt-get update
+            sudo apt-get install -y libsdl2-dev
+          fi
+
+      # --static-deps links libSDL2.a into each binary, so a user downloading a
+      # release does not need SDL2 installed. SDL2 is zlib-licensed, so static
+      # linking carries no distribution obligation.
+      - name: build cores
+        run: |
+          for core in nes snes genesis; do
+            milo build "$core/$core.milo" -o "$core" --release --static-deps
+          done
+          milo build menu.milo -o menu --release --static-deps
+
+      # The whole point of the release is a binary that runs on a bare machine.
+      # If SDL ever comes back as a dynamic dep, fail rather than ship it.
+      - name: verify binaries carry no SDL runtime dependency
+        run: |
+          for b in nes snes genesis menu; do
+            if [ "$RUNNER_OS" = "macOS" ]; then
+              deps=$(otool -L "$b")
+            else
+              deps=$(ldd "$b")
+            fi
+            if printf '%s' "$deps" | grep -qi 'libsdl'; then
+              echo "ERROR: $b links SDL dynamically — --static-deps did not take"
+              printf '%s\n' "$deps"
+              exit 1
+            fi
+          done
+          echo "all four binaries are SDL-free"
+
+      - name: package
+        run: tar czf "milo-emulators-${{ matrix.target }}.tar.gz" nes snes genesis menu README.md
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: milo-emulators-${{ matrix.target }}
+          path: milo-emulators-${{ matrix.target }}.tar.gz
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+      - run: ls -lh milo-emulators-*.tar.gz
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Latest Build
+          body: |
+            Rolling release from the latest passing commit on main.
+
+            Each archive holds the `nes`, `snes`, and `genesis` cores plus the
+            `menu` front-end. SDL2 is statically linked, so nothing needs
+            installing — download, extract, run. ROMs are not included.
+          prerelease: true
+          make_latest: true
+          files: milo-emulators-*.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
