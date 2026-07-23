@@ -18,13 +18,25 @@ jobs:
           # queues forever. Matches the compiler repo's own matrix.
           - os: macos-latest
             target: darwin-arm64
-          - os: ubuntu-latest
+          - os: ubuntu-22.04
             target: linux-x64
-          - os: ubuntu-24.04-arm
+          - os: ubuntu-22.04-arm
             target: linux-arm64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+
+      # Build on 22.04, not 24.04: a binary links against the build host's glibc,
+      # and 24.04's 2.39 floor makes releases refuse to start on Debian bookworm
+      # (2.36). 22.04 gives 2.35, which covers bookworm and Ubuntu 22.04+.
+      # That image defaults to clang 14, but milo emits opaque-pointer IR and
+      # needs 15+, so select it explicitly.
+      - name: select clang 15+ (linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-15
+          echo "/usr/lib/llvm-15/bin" >> "$GITHUB_PATH"
 
       # Track the compiler's rolling build rather than pinning a version: a
       # language change that breaks these cores should fail here loudly, not rot
