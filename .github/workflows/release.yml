@@ -29,17 +29,21 @@ jobs:
       # Build on 22.04, not 24.04: a binary links against the build host's glibc,
       # and 24.04's 2.39 floor makes releases refuse to start on Debian bookworm
       # (2.36). 22.04 gives 2.35, which covers bookworm and Ubuntu 22.04+.
-      # That image defaults to clang 14, but milo emits opaque-pointer IR and
-      # needs 15+, so select it explicitly.
-      - name: select clang 15+ (linux)
+      #
+      # But 22.04 only ships clang up to 15, and milo needs 16+: its IR uses the
+      # element-type-free intrinsic mangling (@llvm.memcpy.p0.p0.i64) that landed
+      # in LLVM 16. clang 15 accepts opaque `ptr` as a type but rejects those
+      # names. So pull clang 18 from apt.llvm.org.
+      - name: install clang 18 (linux)
         if: runner.os == 'Linux'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y clang-15
-          # milo probes /usr/bin/clang FIRST, which on this image is clang 14 —
-          # putting llvm-15 on PATH is not enough, the symlink has to move.
-          sudo ln -sf /usr/bin/clang-15 /usr/bin/clang
-          sudo ln -sf /usr/bin/clang++-15 /usr/bin/clang++
+          wget -qO llvm.sh https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 18
+          # milo probes /usr/bin/clang FIRST, so the symlink has to move — adding
+          # llvm-18 to PATH is not enough.
+          sudo ln -sf /usr/bin/clang-18 /usr/bin/clang
+          sudo ln -sf /usr/bin/clang++-18 /usr/bin/clang++
           clang --version | head -1
 
       # Track the compiler's rolling build rather than pinning a version: a
